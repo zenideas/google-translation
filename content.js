@@ -53,20 +53,71 @@ async function triggerTranslation(text, selection = null) {
 
 // Highlight selected text
 function highlightSelection(selection, state = 'normal') {
+  if (!selection || selection.rangeCount === 0) return;
+
   const range = selection.getRangeAt(0);
-  const span = document.createElement('span');
-  span.className = `translation-highlight translation-highlight-${state}`;
+  const selectedText = selection.toString().trim();
+
+  if (!selectedText) return;
+
+  // Store the original selection range to restore it later
+  const originalStart = range.startContainer;
+  const originalStartOffset = range.startOffset;
+  const originalEnd = range.endContainer;
+  const originalEndOffset = range.endOffset;
 
   try {
+    // Create a temporary span for highlighting
+    const span = document.createElement('span');
+    span.className = `translation-highlight translation-highlight-${state}`;
+
+    // Try to surround the content with the highlight span
     range.surroundContents(span);
+
+    // Restore the original selection to prevent visual shifting
+    const newRange = document.createRange();
+    newRange.setStart(originalStart, originalStartOffset);
+    newRange.setEnd(originalEnd, originalEndOffset);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+
   } catch (e) {
-    // If surroundContents fails, try alternative method
-    const text = selection.toString();
-    const newNode = document.createElement('span');
-    newNode.className = `translation-highlight translation-highlight-${state}`;
-    newNode.textContent = text;
-    range.deleteContents();
-    range.insertNode(newNode);
+    // If surroundContents fails (e.g., selection crosses element boundaries)
+    console.warn('Could not highlight selection:', e);
+
+    // Alternative: Just add a visual effect without modifying DOM
+    if (currentSettings && currentSettings.enableVisualFeedback) {
+      // Add a temporary visual indicator that doesn't modify selection
+      const tempHighlight = document.createElement('div');
+      tempHighlight.className = 'temp-translation-highlight';
+      tempHighlight.style.cssText = `
+        position: absolute;
+        background: rgba(66, 133, 244, 0.2);
+        border: 2px solid #4285f4;
+        border-radius: 4px;
+        pointer-events: none;
+        z-index: 10000;
+        transition: all 0.3s;
+      `;
+
+      // Get bounding rectangle of selection
+      const rect = range.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        tempHighlight.style.top = `${rect.top + window.scrollY}px`;
+        tempHighlight.style.left = `${rect.left + window.scrollX}px`;
+        tempHighlight.style.width = `${rect.width}px`;
+        tempHighlight.style.height = `${rect.height}px`;
+
+        document.body.appendChild(tempHighlight);
+
+        // Remove after animation
+        setTimeout(() => {
+          if (tempHighlight.parentNode) {
+            tempHighlight.parentNode.removeChild(tempHighlight);
+          }
+        }, state === 'translating' ? 2000 : 500);
+      }
+    }
   }
 }
 
