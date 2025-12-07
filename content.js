@@ -33,9 +33,9 @@ async function triggerTranslation(text, selection = null) {
       }
 
       // Show success message
-      let message = '✓ Translation copied to clipboard!';
+      let message = 'Translation copied to clipboard!';
       if (settings.targetLanguage === 'bn') {
-        message = '✓ বাংলা অনুবাদ ক্লিপবোর্ডে কপি হয়েছে!';
+        message = 'বাংলা অনুবাদ ক্লিপবোর্ডে কপি হয়েছে!';
       }
       showNotification(message, 'success');
     } else {

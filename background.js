@@ -19,10 +19,10 @@ const LANGUAGE_CODES = {
 
 // Default settings
 const DEFAULT_SETTINGS = {
-  targetLanguage: 'bn', // Bengali as default
+  targetLanguage: 'bn',
   sourceLanguage: 'auto',
   enableContextMenu: true,
-  enableVisualFeedback: true
+  enableVisualFeedback: false
 };
 
 let contextMenuExists = false;
