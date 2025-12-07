@@ -1,6 +1,6 @@
 // Language code mapping
 const LANGUAGE_CODES = {
-  'bn': 'bn',  // Bengali
+  'bn': 'bn',
   'en': 'en',
   'es': 'es',
   'fr': 'fr',
@@ -123,16 +123,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       const sourceLang = result.sourceLanguage || 'auto';
 
       try {
-        // Show translating notification
-        if (tab && tab.id) {
-          chrome.tabs.sendMessage(tab.id, {
-            action: "showNotification",
-            message: `Translating...`,
-            type: "info"
-          }).catch(() => {
-            // Tab might not have content script loaded
-          });
-        }
+        // Note: We're NOT sending a "translating..." notification from background
+        // The content script will handle its own notifications
 
         // Translate the text
         const translatedText = await translateText(info.selectionText, targetLang, sourceLang);

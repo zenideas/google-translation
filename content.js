@@ -1,5 +1,6 @@
 let isTranslating = false;
 let currentSettings = null;
+let currentTranslatingNotificationId = null; // Track current translating notification
 
 // Load settings on start
 loadSettings();
@@ -12,13 +13,10 @@ async function triggerTranslation(text, selection = null) {
   try {
     const settings = await getSettings();
 
-    // Visual feedback
+    // Visual feedback ONLY (no notification)
     if (settings.enableVisualFeedback && selection && selection.rangeCount > 0) {
       highlightSelection(selection, 'translating');
     }
-
-    // Show translating notification
-    const translatingId = showNotification('Translating...', 'info');
 
     const response = await chrome.runtime.sendMessage({
       action: "translate",
@@ -26,9 +24,6 @@ async function triggerTranslation(text, selection = null) {
       targetLang: settings.targetLanguage,
       sourceLang: settings.sourceLanguage
     });
-
-    // Remove translating notification
-    removeNotification(translatingId);
 
     if (response && response.success) {
       // Success feedback
@@ -185,6 +180,12 @@ function showNotification(message, type = 'info') {
     }
   });
 
+  // If showing a new notification and there's an existing translating notification, remove it
+  if (type !== 'info' && currentTranslatingNotificationId) {
+    removeNotification(currentTranslatingNotificationId);
+    currentTranslatingNotificationId = null;
+  }
+
   const notification = document.createElement('div');
   notification.className = `translation-notification`;
   notification.dataset.id = id;
@@ -227,7 +228,12 @@ function showNotification(message, type = 'info') {
   document.body.appendChild(notification);
   activeNotifications.add(id);
 
-  if (type !== 'info') {
+  // Info notifications (translating) should be removed when translation completes
+  // Success/error notifications auto-remove after 3 seconds
+  if (type === 'info') {
+    // Store the ID for later removal
+    currentTranslatingNotificationId = id;
+  } else {
     setTimeout(() => removeNotification(id), 3000);
   }
 
@@ -241,6 +247,11 @@ function removeNotification(id) {
     setTimeout(() => {
       notification.remove();
       activeNotifications.delete(id);
+
+      // Clear the translating notification ID if it's the one being removed
+      if (currentTranslatingNotificationId === id) {
+        currentTranslatingNotificationId = null;
+      }
     }, 300);
   }
 }
