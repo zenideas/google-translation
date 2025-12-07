@@ -306,9 +306,13 @@ async function loadSettings() {
   });
 }
 
-// Keyboard shortcut (optional - Ctrl+Shift+T)
+// Keyboard shortcut (Alt+Q)
 document.addEventListener('keydown', async (event) => {
-  if (event.ctrlKey && event.shiftKey && event.key === 'T') {
+  // Check for Alt key (Windows) or Option key (Mac)
+  const isAltOrOption = event.altKey;
+
+  // Check if 'q' key is pressed along with Alt/Option
+  if (isAltOrOption && event.key.toLowerCase() === 'q') {
     event.preventDefault();
     const selectedText = window.getSelection().toString().trim();
     if (selectedText) {
