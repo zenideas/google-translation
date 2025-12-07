@@ -52,6 +52,7 @@ async function triggerTranslation(text, selection = null) {
 }
 
 // Highlight selected text
+// Replace the existing highlightSelection function in content.js with this improved version
 function highlightSelection(selection, state = 'normal') {
   if (!selection || selection.rangeCount === 0) return;
 
@@ -60,74 +61,192 @@ function highlightSelection(selection, state = 'normal') {
 
   if (!selectedText) return;
 
-  // Store the original selection range to restore it later
+  // Store original selection
   const originalStart = range.startContainer;
   const originalStartOffset = range.startOffset;
   const originalEnd = range.endContainer;
   const originalEndOffset = range.endOffset;
 
   try {
-    // Create a temporary span for highlighting
-    const span = document.createElement('span');
-    span.className = `translation-highlight translation-highlight-${state}`;
+    // First, try to get bounding rect to determine if we can highlight
+    const rect = range.getBoundingClientRect();
 
-    // Try to surround the content with the highlight span
-    range.surroundContents(span);
+    if (rect.width === 0 && rect.height === 0) {
+      // Selection is likely collapsed or invalid
+      throw new Error('Invalid selection');
+    }
 
-    // Restore the original selection to prevent visual shifting
-    const newRange = document.createRange();
-    newRange.setStart(originalStart, originalStartOffset);
-    newRange.setEnd(originalEnd, originalEndOffset);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
+    // Check if selection crosses element boundaries
+    const startContainer = range.startContainer;
+    const endContainer = range.endContainer;
+
+    // If selection is within the same text node, we can use surroundContents
+    if (startContainer === endContainer && startContainer.nodeType === Node.TEXT_NODE) {
+      const span = document.createElement('span');
+      span.className = `translation-highlight translation-highlight-${state}`;
+      range.surroundContents(span);
+    } else {
+      // Complex selection crossing element boundaries - use a different approach
+      highlightComplexSelection(range, state);
+    }
+
+    // Try to restore selection
+    try {
+      const newRange = document.createRange();
+      newRange.setStart(originalStart, originalStartOffset);
+      newRange.setEnd(originalEnd, originalEndOffset);
+
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+    } catch (restoreError) {
+      console.warn('Could not restore selection:', restoreError);
+    }
 
   } catch (e) {
-    // If surroundContents fails (e.g., selection crosses element boundaries)
-    console.warn('Could not highlight selection:', e);
+    console.warn('Could not highlight selection with surroundContents:', e);
 
-    // Alternative: Just add a visual effect without modifying DOM
-    if (currentSettings && currentSettings.enableVisualFeedback) {
-      // Add a temporary visual indicator that doesn't modify selection
-      const tempHighlight = document.createElement('div');
-      tempHighlight.className = 'temp-translation-highlight';
-      tempHighlight.style.cssText = `
-        position: absolute;
-        background: rgba(66, 133, 244, 0.2);
-        border: 2px solid #4285f4;
-        border-radius: 4px;
-        pointer-events: none;
-        z-index: 10000;
-        transition: all 0.3s;
-      `;
+    // Fallback: Use overlay highlighting
+    createOverlayHighlight(range, state);
+  }
+}
 
-      // Get bounding rectangle of selection
-      const rect = range.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        tempHighlight.style.top = `${rect.top + window.scrollY}px`;
-        tempHighlight.style.left = `${rect.left + window.scrollX}px`;
-        tempHighlight.style.width = `${rect.width}px`;
-        tempHighlight.style.height = `${rect.height}px`;
+// Helper function for complex selections
+function highlightComplexSelection(range, state) {
+  const selectedText = range.toString();
+  if (!selectedText || selectedText.length > 5000) {
+    // Too long or empty, use overlay instead
+    createOverlayHighlight(range, state);
+    return;
+  }
 
-        document.body.appendChild(tempHighlight);
+  // Extract HTML content from range
+  const fragment = range.cloneContents();
+  const tempDiv = document.createElement('div');
+  tempDiv.appendChild(fragment.cloneNode(true));
 
-        // Remove after animation
-        setTimeout(() => {
-          if (tempHighlight.parentNode) {
-            tempHighlight.parentNode.removeChild(tempHighlight);
-          }
-        }, state === 'translating' ? 2000 : 500);
-      }
+  // Mark highlighted content
+  const walker = document.createTreeWalker(
+    tempDiv,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+
+  let node;
+  const nodesToProcess = [];
+  while (node = walker.nextNode()) {
+    if (node.textContent.trim()) {
+      nodesToProcess.push(node);
     }
   }
+
+  // Process each text node
+  nodesToProcess.forEach(textNode => {
+    const span = document.createElement('span');
+    span.className = `translation-highlight translation-highlight-${state}`;
+    span.textContent = textNode.textContent;
+    textNode.parentNode.replaceChild(span, textNode);
+  });
+
+  // Replace original content with highlighted version
+  try {
+    range.deleteContents();
+    range.insertNode(tempDiv);
+  } catch (error) {
+    console.warn('Could not replace selection:', error);
+    createOverlayHighlight(range, state);
+  }
+}
+
+// Overlay highlighting (doesn't modify DOM)
+function createOverlayHighlight(range, state) {
+  const rects = range.getClientRects();
+  if (rects.length === 0) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'translation-highlight-overlay';
+  overlay.style.cssText = `
+    position: absolute;
+    pointer-events: none;
+    z-index: 10000;
+    transition: all 0.3s;
+    border-radius: 3px;
+  `;
+
+  // Set highlight color based on state
+  if (state === 'translating') {
+    overlay.style.background = 'rgba(255, 193, 7, 0.3)';
+    overlay.style.border = '2px solid rgba(255, 193, 7, 0.5)';
+  } else {
+    overlay.style.background = 'rgba(66, 133, 244, 0.2)';
+    overlay.style.border = '2px solid rgba(66, 133, 244, 0.3)';
+  }
+
+  // Create separate highlight for each rectangle
+  rects.forEach(rect => {
+    if (rect.width > 0 && rect.height > 0) {
+      const highlight = overlay.cloneNode(true);
+      highlight.style.top = `${rect.top + window.scrollY}px`;
+      highlight.style.left = `${rect.left + window.scrollX}px`;
+      highlight.style.width = `${rect.width}px`;
+      highlight.style.height = `${rect.height}px`;
+
+      document.body.appendChild(highlight);
+
+      // Auto-remove based on state
+      setTimeout(() => {
+        if (highlight.parentNode) {
+          highlight.parentNode.removeChild(highlight);
+        }
+      }, state === 'translating' ? 2000 : 500);
+    }
+  });
+}
+
+// Also update the clearHighlights function to handle overlays
+function clearHighlights() {
+  // Clear DOM highlights
+  document.querySelectorAll('.translation-highlight').forEach(el => {
+    try {
+      const parent = el.parentNode;
+      if (parent) {
+        // Replace span with its text content
+        const textNode = document.createTextNode(el.textContent);
+        parent.replaceChild(textNode, el);
+      }
+    } catch (e) {
+      console.warn('Error clearing highlight:', e);
+    }
+  });
+
+  // Clear overlay highlights
+  document.querySelectorAll('.translation-highlight-overlay').forEach(el => {
+    if (el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
+  });
 }
 
 function clearHighlights() {
   document.querySelectorAll('.translation-highlight').forEach(el => {
-    const parent = el.parentNode;
-    while (el.firstChild) {
-      parent.insertBefore(el.firstChild, el);
+    try {
+      const parent = el.parentNode;
+      if (parent) {
+        // Replace span with its text content
+        const textNode = document.createTextNode(el.textContent);
+        parent.replaceChild(textNode, el);
+      }
+    } catch (e) {
+      console.warn('Error clearing highlight:', e);
     }
-    parent.removeChild(el);
+  });
+
+  // Clear overlay highlights
+  document.querySelectorAll('.translation-highlight-overlay').forEach(el => {
+    if (el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
   });
 }
 

@@ -25,11 +25,15 @@ const DEFAULT_SETTINGS = {
   enableVisualFeedback: false
 };
 
-let contextMenuExists = false;
+let contextMenuCreated = false;
+const CONTEXT_MENU_ID = "translate-text";
 
 // Initialize context menu
 async function initializeContextMenu() {
   try {
+    // First, remove any existing context menu to avoid duplicates
+    await removeContextMenu();
+
     const settings = await chrome.storage.local.get(['enableContextMenu']);
 
     if (settings.enableContextMenu !== false) { // Default to true
@@ -61,20 +65,21 @@ async function createOrUpdateContextMenu() {
     const langName = langNames[langCode] || langCode;
     const menuTitle = `Translate to ${langName}`;
 
-    if (!contextMenuExists) {
-      // Create new context menu
+    if (!contextMenuCreated) {
+      // Create new context menu with error handling
       chrome.contextMenus.create({
-        id: "translate-text",
+        id: CONTEXT_MENU_ID,
         title: menuTitle,
         contexts: ["selection"]
       }, () => {
         if (chrome.runtime.lastError) {
-          console.error('Context menu creation error:', chrome.runtime.lastError.message);
-          // Try to update if it already exists
+          console.log('Context menu might already exist, attempting update:', chrome.runtime.lastError.message);
+
+          // If it already exists, just update it
           updateExistingContextMenu(menuTitle);
         } else {
           console.log('Context menu created successfully');
-          contextMenuExists = true;
+          contextMenuCreated = true;
         }
       });
     } else {
@@ -87,45 +92,45 @@ async function createOrUpdateContextMenu() {
 }
 
 function updateExistingContextMenu(title) {
-  chrome.contextMenus.update("translate-text", {
+  chrome.contextMenus.update(CONTEXT_MENU_ID, {
     title: title
   }, () => {
     if (chrome.runtime.lastError) {
-      if (chrome.runtime.lastError.message.includes('Cannot find menu item')) {
-        // Menu doesn't exist, create it
-        contextMenuExists = false;
-        createOrUpdateContextMenu();
-      } else {
-        console.error('Error updating context menu:', chrome.runtime.lastError.message);
-      }
+      console.log('Could not update context menu, might need recreation:', chrome.runtime.lastError.message);
+
+      // If menu doesn't exist, reset flag and try to create it
+      contextMenuCreated = false;
+      createOrUpdateContextMenu();
     } else {
-      contextMenuExists = true;
       console.log('Context menu updated successfully');
     }
   });
 }
 
 async function removeContextMenu() {
-  try {
-    await chrome.contextMenus.removeAll();
-    contextMenuExists = false;
-    console.log('Context menu removed');
-  } catch (error) {
-    console.error('Error removing context menu:', error);
-  }
+  return new Promise((resolve) => {
+    chrome.contextMenus.removeAll(() => {
+      // Always reset the flag, even if there's an error
+      contextMenuCreated = false;
+
+      if (chrome.runtime.lastError) {
+        console.log('No context menu to remove or error removing:', chrome.runtime.lastError.message);
+      } else {
+        console.log('Context menu removed successfully');
+      }
+      resolve();
+    });
+  });
 }
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "translate-text" && info.selectionText) {
+  if (info.menuItemId === CONTEXT_MENU_ID && info.selectionText) {
     chrome.storage.local.get(['targetLanguage', 'sourceLanguage'], async (result) => {
       const targetLang = result.targetLanguage || 'bn';
       const sourceLang = result.sourceLanguage || 'auto';
 
       try {
-        // Note: We're NOT sending a "translating..." notification from background
-        // The content script will handle its own notifications
-
         // Translate the text
         const translatedText = await translateText(info.selectionText, targetLang, sourceLang);
 
@@ -286,8 +291,11 @@ async function translateText(text, targetLang, sourceLang = 'auto') {
 }
 
 // Initialize on install
-chrome.runtime.onInstalled.addListener(async () => {
-  console.log('Extension installed');
+chrome.runtime.onInstalled.addListener(async (details) => {
+  console.log('Extension installed/updated:', details.reason);
+
+  // Always remove existing context menu first
+  await removeContextMenu();
 
   // Set default settings
   await chrome.storage.local.set(DEFAULT_SETTINGS);
@@ -312,4 +320,10 @@ chrome.storage.onChanged.addListener(async (changes) => {
 });
 
 // Initialize on startup
+chrome.runtime.onStartup.addListener(() => {
+  console.log('Extension starting up');
+  initializeContextMenu();
+});
+
+// Initialize when extension loads
 initializeContextMenu();

@@ -12,13 +12,26 @@
   animation: pulse 1.5s infinite;
 }
 
-/* Alternative highlight style for failed selections */
 .temp-translation-highlight {
   animation: pulse 1.5s infinite;
 }
 
+.translation-highlight-overlay {
+  animation: pulse 1.5s infinite;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.1);
+}
+
 @keyframes pulse {
-  0% { background-color: rgba(255, 193, 7, 0.3); }
-  50% { background-color: rgba(255, 193, 7, 0.5); }
-  100% { background-color: rgba(255, 193, 7, 0.3); }
+  0% {
+    background-color: rgba(255, 193, 7, 0.3);
+    opacity: 0.7;
+  }
+  50% {
+    background-color: rgba(255, 193, 7, 0.5);
+    opacity: 0.9;
+  }
+  100% {
+    background-color: rgba(255, 193, 7, 0.3);
+    opacity: 0.7;
+  }
 }
