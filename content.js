@@ -1,50 +1,8 @@
-let clickCount = 0;
-let clickTimer;
-let lastSelectedText = '';
-let lastSelectionTime = 0;
 let isTranslating = false;
 let currentSettings = null;
 
 // Load settings on start
 loadSettings();
-
-// Mouse selection handling
-document.addEventListener('mouseup', handleMouseUp);
-
-async function handleMouseUp(event) {
-  if (isTranslating) return;
-
-  const selection = window.getSelection();
-  const selectedText = selection.toString().trim();
-
-  if (!selectedText) return;
-
-  // Get current settings
-  const settings = await getSettings();
-  if (!settings.enableClickTranslation) return;
-
-  const currentTime = Date.now();
-
-  // Reset if selection changed or too much time passed
-  if (selectedText !== lastSelectedText || (currentTime - lastSelectionTime) > 1000) {
-    clickCount = 0;
-  }
-
-  lastSelectedText = selectedText;
-  lastSelectionTime = currentTime;
-  clickCount++;
-
-  if (clickTimer) {
-    clearTimeout(clickTimer);
-  }
-
-  clickTimer = setTimeout(async () => {
-    if (clickCount === settings.clickCount) {
-      await triggerTranslation(selectedText, selection);
-    }
-    clickCount = 0;
-  }, 400);
-}
 
 async function triggerTranslation(text, selection = null) {
   if (isTranslating) return;

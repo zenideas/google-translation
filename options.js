@@ -18,8 +18,6 @@ async function loadSettings() {
     // Set form values
     document.getElementById('sourceLanguage').value = settings.sourceLanguage || 'auto';
     document.getElementById('targetLanguage').value = settings.targetLanguage || 'bn';
-    document.getElementById('clickCount').value = settings.clickCount || 3;
-    document.getElementById('enableClickTranslation').checked = settings.enableClickTranslation !== false;
     document.getElementById('enableContextMenu').checked = settings.enableContextMenu !== false;
     document.getElementById('enableVisualFeedback').checked = settings.enableVisualFeedback !== false;
 
@@ -35,8 +33,6 @@ async function saveSettings() {
     const settings = {
       sourceLanguage: document.getElementById('sourceLanguage').value,
       targetLanguage: document.getElementById('targetLanguage').value,
-      clickCount: parseInt(document.getElementById('clickCount').value),
-      enableClickTranslation: document.getElementById('enableClickTranslation').checked,
       enableContextMenu: document.getElementById('enableContextMenu').checked,
       enableVisualFeedback: document.getElementById('enableVisualFeedback').checked
     };
@@ -74,10 +70,6 @@ async function saveSettings() {
 
     if (settings.enableContextMenu) {
       message += ' Context menu enabled.';
-    }
-
-    if (settings.enableClickTranslation) {
-      message += ` Click ${settings.clickCount}x to translate.`;
     }
 
     showStatus(message, 'success');

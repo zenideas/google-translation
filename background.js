@@ -21,9 +21,7 @@ const LANGUAGE_CODES = {
 const DEFAULT_SETTINGS = {
   targetLanguage: 'bn', // Bengali as default
   sourceLanguage: 'auto',
-  clickCount: 3,
   enableContextMenu: true,
-  enableClickTranslation: true,
   enableVisualFeedback: true
 };
 
