@@ -478,11 +478,11 @@ async function loadSettings() {
 
 // Keyboard shortcut (Alt+Q)
 document.addEventListener('keydown', async (event) => {
-  // Check for Alt key (Windows) or Option key (Mac)
-  const isAltOrOption = event.altKey;
+  // Check for Ctrl key (Windows) or Cmd key (Mac)
+  const isCtrlOrCmd = event.metaKey;
 
-  // Check if 'q' key is pressed along with Alt/Option
-  if (isAltOrOption && event.key.toLowerCase() === 'q') {
+  // Check if 'c' key is pressed along with Ctrl/Cmd
+  if (isCtrlOrCmd && event.key.toLowerCase() === 'c') {
     event.preventDefault();
     const selectedText = window.getSelection().toString().trim();
     if (selectedText) {
