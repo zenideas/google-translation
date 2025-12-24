@@ -476,7 +476,7 @@ async function loadSettings() {
   });
 }
 
-// Keyboard shortcut (Alt+Q)
+// Keyboard shortcut (Cmd+C)
 document.addEventListener('keydown', async (event) => {
   // Check for Alt key (Windows) or Option key (Mac)
   const isAltOrOption = event.altKey;
